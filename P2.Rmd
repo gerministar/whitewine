@@ -1,0 +1,358 @@
+Explore and Summarize Data by WuXuhua
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using
+# in your analysis in this code chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk.
+# This prevents the code from displaying in the knitted HTML output.
+# You should set echo=FALSE for all code chunks in your file.
+
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='images/',
+                      echo=FALSE, warning=FALSE, message=FALSE)
+suppressMessages(library(ggplot2))
+suppressMessages(library(gridExtra))
+suppressMessages(library(GGally))
+suppressMessages(library(dplyr))
+
+Sys.setlocale('LC_ALL','C')
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+setwd("d:/Udacity/nd002 advanced/P2")
+wine <- read.csv("wineQualityWhites.csv")
+names(wine)
+head(wine)
+
+# 删除X列,X列是行号
+wine <- within(wine, rm(X))
+str(wine)
+summary(wine)
+print("table wine qulity:")
+table(wine$quality)
+
+# 将quality转换成3个等级: 'low', 'middle', 'high'.
+wine$quality.level <- ifelse(wine$quality <= 4, 'low', 
+                           ifelse(wine$quality <=6, 'middle', 
+                                  ifelse(wine$quality > 6, 'high', 'none')))
+wine$quality.level <- ordered(wine$quality.level, levels = c('low', 'middle', 'high'))
+
+print("table wine qulity level:")
+table(wine$quality.level)
+```
+
+# Univariate Plots Section
+```{r echo=FALSE, Univariate_Plots}
+#变量直方图
+uni_variable_histograme <- function(x_name, x_lab, bins = 30)
+{
+  g = ggplot(aes(x = x_name), data = wine) + 
+    geom_histogram(bins = bins, fill = I("orange"), color = I("black")) +
+    xlab(x_lab)
+  
+  return(g)
+}
+
+g1 = uni_variable_histograme(wine$fixed.acidity, "fixed.acidity")
+g2 = uni_variable_histograme(wine$volatile.acidity, "volatile.acidity")
+g3 = uni_variable_histograme(wine$citric.acid, "citric.acid")
+g4 = uni_variable_histograme(wine$residual.sugar, "residual.sugar")
+g5 = uni_variable_histograme(wine$chlorides, "chlorides")
+g6 = uni_variable_histograme(wine$free.sulfur.dioxide, "free.sulfur.dioxide")
+g7 = uni_variable_histograme(wine$total.sulfur.dioxide, "total.sulfur.dioxide")
+g8 = uni_variable_histograme(wine$density, "density")
+g9 = uni_variable_histograme(wine$pH, "pH")
+g10 = uni_variable_histograme(wine$sulphates, "sulphates")
+g11 = uni_variable_histograme(wine$alcohol, "alcohol")
+g12 = uni_variable_histograme(wine$quality, "quality", 10)
+
+grid.arrange(g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, ncol = 3)
+```
+
+可以看到，sulphates和alcohol数据成长尾分布，在这里我们对它们进行log10对数转换，以减少长尾的影响。
+```{r echo=FALSE, Univariate_Plots_2}
+#log10转换sulphates
+g1 = ggplot(aes(x = sulphates), data = wine) +
+  geom_histogram(binwidth = 0.01, fill = I("orange"), color = I("black"))
+g2 = g1 + scale_x_log10() + xlab("log10(sulphates)") 
+grid.arrange(g1, g2, ncol = 2)
+
+#log10转换fixed.acidity
+g1 = ggplot(aes(x = fixed.acidity), data = wine) +
+  geom_histogram(binwidth = 0.5, fill = I("orange"), color = I("black"))
+g2 = ggplot(aes(x = fixed.acidity), data = wine) + 
+  geom_histogram(binwidth = 0.01, fill = I("orange"), color = I("black")) + 
+  scale_x_log10() + xlab("log10(fixed.acidity)")
+grid.arrange(g1, g2, ncol = 2)
+
+#log10转换volatile.acidity
+g1 = ggplot(aes(x = volatile.acidity), data = wine) +
+  geom_histogram(binwidth = 0.05, fill = I("orange"), color = I("black"))
+g2 = g1 + scale_x_log10() + 
+  xlab("log10(volatile.acidity)")
+grid.arrange(g1, g2, ncol = 2)
+```
+log10转换后，数据更加接近正太分布，方便我们进行分析。
+
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+总共有4898条白葡萄酒记录，每条记录有11种白葡萄酒的化学属性(fixed.acidity, volatile.acidity, citric.acid, residual.sugar, chlorides, free.sulfur.dioxide, total.sulfur.dioxide, density, pH, sulphates, alcohol)和质量(quality)。
+白葡萄酒质量评分的中位数是6，75%的质量评分在6分或以下。酒精含量的中位数是10.4，最高含量是14.2。
+
+### What is/are the main feature(s) of interest in your dataset?
+质量是主要特性，我想要知道是哪些因素决定了白葡萄酒质量的好坏。
+
+### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+我猜测剩余糖量(residual.sugar)、pH值(各种酸混合的结果)、密度(density)和酒精含量起着主要的作用。
+
+### Did you create any new variables from existing variables in the dataset?
+我创建了一个新的变量quality.level,他是基于质量得分对质量分配的等级，有3个值(low:3,4)、(middle:5,6)、(high:7,8,9)
+
+### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+* X列是每行的行号，并不重要，我把它删除了
+* 硫酸盐, 固定酸度和易挥发酸度的分布都有长尾，我对他们执行了指数转换，以消除长尾，使他们的分布接近正太分布。
+
+
+# Bivariate Plots Section
+```{r echo=FALSE, Bivariate_Plots}
+#创建散点矩阵图
+ggpairs(wine[, c(1:12)], 
+        columnLabels=c("f.acid", "v.acid", "c.acid","sugur", "chlo", "f.So2", 
+                       "t.So2", "density", "pH", "sulph", "alco", "quality"),
+        lower = list(continuous = wrap("points", size=1, shape = I('.'))),
+        upper = list(combo = wrap("box", outlier.shape = I('.')))) + 
+  theme(axis.ticks=element_blank(),
+        axis.line=element_blank(), 
+        axis.text=element_blank(), 
+        panel.grid.major= element_blank())
+```
+首先来看一下这些数据是否在化学上有其合理性，我首先画一下pH值和固定酸度散点图。相关系数是-0.426，意味着当固定酸度上升时，pH值会下降，符合常理。
+```{r echo=FALSE, Bivariate_Plots_2}
+# 绘制酸度和pH关系散点图
+
+#固定酸度和pH值散点图
+ggplot(aes(x = fixed.acidity, y = pH), data = wine) +
+  geom_point(color = "orange", alpha = 1/4) + geom_smooth(method = "lm")
+
+with(wine, cor.test(wine$fixed.acidity, wine$pH))
+```
+柠檬酸(citric.acid)和pH值的关系要弱很多，相关系数是-0.164。这也说明了柠檬酸是固定酸度的一个子集。
+```{r echo=FALSE, Bivariate_Plots_3}
+#柠檬酸和PH值散点图
+ggplot(aes(x = citric.acid, y = pH), data = wine) +
+  geom_point(color = "orange", alpha = 1/4) + geom_smooth(method = "lm")
+
+with(wine, cor.test(wine$citric.acid, wine$pH))
+```
+
+我想要进一步探索酒精含量、氯盐(chlorides)、挥发性酸度(volatile.acidity)和密度(density)来了解它们和白葡萄酒质量的关系，因为它们和质量的关系系数接近或者大于0.2。我使用箱线图和中位数来测量数据的差别。箱线图揭示了十分有趣的事实，高质量的白葡萄酒的酒精含量明显高于中等和低质量的酒。氯盐、挥发性酸度和密度和质量呈现了负相关。   
+```{r echo=FALSE, Bivariate_Plots_4}
+#不同质量酒精含量箱线图
+ggplot(aes(x = quality.level, y = alcohol), data = wine) +
+  geom_boxplot() + 
+  xlab("quality") +
+  coord_cartesian(ylim = c(9, 13)) + 
+  geom_point(stat = "summary", fun.y = median, shape = 4)
+by(wine$alcohol, wine$quality.level, summary)
+
+#不同质量氯盐含量箱线图
+ggplot(aes(x = quality.level, y = chlorides), data = wine) +
+  geom_boxplot() + 
+  xlab("quality") +
+  coord_cartesian(ylim = c(0, 0.1)) + 
+  geom_point(stat = "summary", fun.y = median, shape = 4)
+by(wine$chlorides, wine$quality.level, summary)
+
+#不同质量挥发性酸度箱线图
+ggplot(aes(x = quality.level, y = volatile.acidity), data = wine) +
+  geom_boxplot() + 
+  xlab("quality") + ylab("volatile acidity") +
+  coord_cartesian(ylim = c(0.1, 0.6)) + 
+  geom_point(stat = "summary", fun.y = median, shape = 4)
+by(wine$volatile.acidity, wine$quality.level, summary)
+
+#不同质量密度箱线图
+ggplot(aes(x = quality.level, y = density), data = wine) +
+  geom_boxplot() + 
+  xlab("quality") + 
+  coord_cartesian(ylim = c(0.99, 1)) + 
+  geom_point(stat = "summary", fun.y = median, shape = 4)
+by(wine$density, wine$quality.level, summary)
+```
+# Bivariate Analysis-
+
+### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+正如箱线图揭示的:
+
+* 中等和低质量的白葡萄酒的酒精含量中位数基本相同(10%)，高质量的中位数则是11.5%。这一点非常重要，高的酒精含量使白葡萄酒的质量更高。
+* 随着氯盐含量的增加，白葡萄酒的质量会下降。低质量白葡萄酒的中位数是0.046，中等质量的中位数是0.044，高质量的中位数是0.037。可能是因为过多的氯盐会增加葡萄酒中的“咸味”，影响葡萄酒的口感。
+* 高中质量白葡萄酒的挥发性酸度中位数相差不大，都在0.025左右，低质量的中位数是0.032。
+* 高质量的白葡萄酒和密度比中低质量的白葡萄酒要低，中位数为0.9917，中低质量的为0.9944。可能是因为酒精的密度比水低，较低的密度意味着酒精含量较高，相对来说质量就较高，因此我认为密度不是影响白葡萄酒质量的主要因素
+
+### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+我观察到剩余糖量和密度的相关性非常高，相关系数是0.839，成很强的正相关，说明糖量会增加白葡萄酒的密度；酒精含量和密码成负相关，相关系数是-0.78，联想到酒精的密度比水低，这一点也就合理了。
+
+### What was the strongest relationship you found?
+从散点矩阵图中可以看到，最强的相关性是剩余糖量和密度的关系，相关系数是0.839
+
+
+
+# Multivariate Plots Section
+
+```{r echo=FALSE, Multivariate_Plots}
+#绘制不同质量中酒精含量和挥发性酸度散点图,去除1%的异常值
+ggplot(aes(x = volatile.acidity, y = alcohol), data = wine) +
+  geom_point(aes(color = quality.level), alpha = 0.5, position = "jitter") + 
+  labs(x = "volatile acidity (g/cm^3)", y = "Alcohol(%)", 
+         title = "Volatile acidity vs. Alcohol(%)") +
+  scale_color_brewer(type = 'div', palette = "Blues", 
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) +
+  xlim(c(0, quantile(diamonds$carat, 0.99)))
+```
+将挥发性酸度和酒精含量比较时，我观察到低质量的白葡萄酒的挥发性酸度值集中在0.3到0.5，中高质量的酒集中在0.2到0.4;中高质量的挥发性酸度相差不大，在这种情况下，酒精含量的高低决定了酒的质量的高低。
+```{r echo=FALSE, Multivariate_Plots_2}
+#绘制不同质量中酒精含量和密度散点图
+ggplot(aes(x = density, y = alcohol), data = wine) +
+  geom_point(aes(color = quality.level), alpha = 0.5, position = "jitter") + 
+  labs(x = "desity (g/cm^3)", y = "Alcohol(%)", 
+         title = "Desity vs. Alcohol(%)") +
+  scale_color_brewer(type = 'div', palette = "Blues", 
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) 
+```
+从酒精含量和密度的关系图中可以看到，不同质量的酒的密度范围相差不大，都在0.98到1之间，而且酒精和密度有很强的负相关性；据此可以认为，决定白葡萄酒质量的仍然是酒精含量。
+
+```{r echo=FALSE, Multivariate_Plots_3}
+#绘制不同质量中酒精含量和氯盐散点图
+ggplot(aes(x = chlorides, y = alcohol), data = wine) +
+  geom_point(aes(color = quality.level), alpha = 0.5, position = "jitter") + 
+  labs(x = "chlorides (g/cm^3)", y = "Alcohol(%)", 
+         title = "Chlorides vs. Alcohol(%)") +
+  scale_color_brewer(type = 'div', palette = "Blues",
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) 
+```
+从图中可以看到，高质量的白葡萄酒的氯盐含量略微低于中低档的白葡萄酒，主要集中在0.05值的左侧，但是差别不是很明显，说明相对酒精含量，氯盐的影响要小很多。
+
+```{r echo=FALSE, Multivariate_Plots_4}
+#绘制不同质量中酒精含量和剩余糖量散点图,去掉1%的异常值
+ggplot(aes(x = residual.sugar, y = alcohol), data = wine) +
+  geom_point(aes(color = quality.level), alpha = 0.5, position = "jitter") + 
+  labs(x = "Residual sugar (g/cm^3)", y = "Alcohol(%)", 
+         title = "Residual sugar vs. Alcohol(%)") + 
+  scale_color_brewer(type = 'div', palette = "Blues",
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) +
+  xlim(c(0, quantile(diamonds$carat, 0.99)))
+```
+
+可见剩余糖量对质量的影响不大，高中低质量酒的剩余糖量数据处在同一范围内。
+
+下面我想从密度曲线再来看一下酒精含量和挥发性酸度这两种比较重要的因素的作用。
+
+```{r echo=FALSE, Multivariate_Plots_5}
+#绘制酒精含量密度曲线
+ggplot(data = wine, aes(x = alcohol, color=quality.level)) + 
+    geom_density() + 
+  labs(colour="Quality level", x = "Alcohol(%)", 
+         title = "Density Of Alcohol(%)") + 
+  scale_color_brewer(type = 'div', palette = "Blues",
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) + 
+  theme(panel.background = element_rect(fill = "darkgrey"))
+```
+酒精含量密度曲线再次证明了高质量白葡萄酒的酒精含量多于中低质量的白葡萄酒。
+
+```{r echo=FALSE, Multivariate_Plots_6}
+#绘制挥发性酸度密度曲线
+ggplot(data = wine, aes(x = volatile.acidity, color = quality.level)) + 
+    geom_density() + 
+    labs(colour="Quality level", x = "Volatile acidity(g/cm^3)", 
+         title = "Density Of Volatile acidity(g/cm^3)") + 
+  scale_color_brewer(type = 'div', palette = "Blues",
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) + 
+  theme(panel.background = element_rect(fill = "darkgrey"))
+```
+挥发性酸度的密度曲线可以看出，低质量的葡萄酒的挥发性酸度略微高于中高质量的酒，挥发酸度对质量有一定影响，然而在中高质量之间差别不是很明显。
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+基于多变量分析，我发现密度对白葡萄酒的质量影响不大；但是高的挥发性酸度和氯盐含量存在于质量差的酒中，高的酒精含量，低挥发性酸度、低氯盐是高质量酒的特性
+
+### Were there any interesting or surprising interactions between features?
+剩余糖量被认为对酒的口味具有主要影响，在数据集中对质量的影响不大，相关系数只有-0.098。
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the strengths and limitations of your model.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+ggplot(aes(x = quality.level, y = alcohol), data = wine) +
+  geom_boxplot() +
+  geom_point(fun.y = median, stat = 'summary', shape = 4) +
+  labs(x = 'quality', y = 'Alcohol (%)', 
+       title="Alcohol (%) vs. Quality") 
+by(wine$alcohol, wine$quality.level, summary)
+```
+
+### Description One
+这张图片显示了高质量的酒通常会包含较高的酒精含量，这符合人们通常以酒精度来衡量酒的好坏的习惯做法。
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+ggplot(aes(x = volatile.acidity, y = alcohol), data = wine) +
+  geom_point(aes(color = quality.level), alpha = 0.5, position = "jitter") + 
+  labs(x = 'volatile acidity(g/cm^3)', y = 'Alcohol (%)', 
+       title="Alcohol (%) vs. Volatile acidity(g/cm^3)") +
+  scale_color_brewer(type = 'div', palette = "Blues",
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) +
+  xlim(c(0, quantile(diamonds$carat, 0.99)))
+```
+
+### Description Two
+高、中质量的酒和低质量的酒相比，挥发性酸度要低一些，说明挥发性酸度高是低质量酒的特点。在挥发性酸相同的情况下，酒精含量决定了质量的高低。
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+g1 = ggplot(data=wine, aes(x = alcohol, color=quality.level)) + 
+    geom_density() + 
+    labs(x = 'Alcohol(%)', title="Density Of Alcohol(%)") +
+    labs(colour="Quality level") + 
+  scale_color_brewer(type = 'div', palette = "Blues",
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) +
+  theme(panel.background = element_rect(fill = "darkgrey"))
+
+g2 = ggplot(data=wine, aes(x = volatile.acidity, color=quality.level)) + 
+    geom_density() + 
+     labs(x = 'Volatile acidity(g/cm^3)', title="Density Of Volatile acidity(g/cm^3)") + 
+  labs(colour="Quality level") + 
+  scale_color_brewer(type = 'div', palette = "Blues",
+    guide = guide_legend(title = 'quality', reverse = T,
+    override.aes = list(alpha = 1, size = 2))) + 
+  theme(panel.background = element_rect(fill = "darkgrey"))
+grid.arrange(g1, g2, ncol = 2)
+```
+
+### Description Three
+我们观察到高质量酒相反方向的走势。高酒精含量和低挥发性酸度的酒更倾向于被评为高质量的。基于此，我们可以看到高酒精含量和低挥发酸度是白葡萄酒质量的重要指标。
+
+# Reflection
+白酒数据集包含4898条数据，总共有12个变量。我从理解单个变量开始，然后探索感兴趣的问题，寻找相关线索，观察各种图形。最终，我从众多变量中探索了决定白葡萄酒质量的因素
+
+目前看来，酒精含量是决定质量的主要因素。挥发性酸度需要达到一定的数量，以便使酒精含量产生作用。也许我们可以将这种情况称之为某种“化学反应”。
+
+高质量和低质量的酒的数量非常少。我们可以收集更多的数据并创建更多对酒的质量有影响的变量来改进我们的分析工作。这样我们就可以建立更加可靠的预测模型，来预测酒的质量。另外，值得一提的是我们还应当考虑白葡萄酒评分中的人为因素。既然每项评分是都是由专家打的，然而每个人的口味不同，所以预测模型无法替代人的因素。
+
+虽然说12个变量看起来并不是很多，但也花费了我不少时间去找到真正具有决定因素的变量。值得一提的是，虽然探索变量的过程费时费力，有的时候发现某些变量作用不大的时候也会令人沮丧，但是这还是值得的。因为它们最终缩小了查找的范围，并最终找到了正确的变量。另外，我一开始不知道选择哪种图表来绘制变量好，为了解决这个问题，我列出了能够绘制的图表，并了解它们的特性和作用，并最终选择了适合的图表。
